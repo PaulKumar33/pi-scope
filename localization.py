@@ -5,9 +5,10 @@ import sys
 from pyqtgraph.Qt import QtGui, QtCore
 from random import randint
 import os
+import time
 
-"""import mcp_3008_driver as mcp
-import RPi.GPIO as GPIO"""
+import mcp_3008_driver as mcp
+import RPi.GPIO as GPIO
 
 class Plot2D(QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
@@ -22,14 +23,14 @@ class Plot2D(QtWidgets.QMainWindow):
         self.plot = w.addPlot(row=0, col=0)
 
         #for signal 2
-        self.plot2 = w.addPlot(row=1, col=0)
+        self.plot2 = w.addPlot(row=0, col=1)
 
         #for the std1
-        self.plot3 = w.addPlot(row=2, col=0)
+        self.plot3 = w.addPlot(row=1, col=0)
         #for std2
-        self.plot4 = w.addPlot(row=2, col=1)
+        self.plot4 = w.addPlot(row=1, col=1)
         #for acculated
-        self.plot5 = w.addPlot(row=3, col=0)
+        self.plot5 = w.addPlot(row=2)
 
         self.setCentralWidget(w)
 
@@ -38,38 +39,66 @@ class Plot2D(QtWidgets.QMainWindow):
         self.x = np.arange(0,5.01, 0.01)
         self.y = [randint(-10,10) for _ in range(len(self.x))]
 
-        """if(os.name == 'posix'):
+        if(os.name == 'posix'):
             print("Running ADC")
             self.mcp = mcp.mcp_external()
 
             self.std_1 = 0
             self.std_2 = 0
 
+            '''self.x1 = []
+            self.x2 = []
+            t = time.time()
+            t = time.time() - t * 1000
+            self.t = [0, 0]
+            self.x1 = [0, 0]
+            self.x2 = [0, 0]'''
+            
+            #lets fill the arrays first
+            self.t = []
             self.x1 = []
-            self.x2 = []"""
+            self.x2 = []
+            
+            for i in range(128):
+                self.t.append(i)
+                x1 = float(self.mcp.read_IO(0)/65355*5)
+                x2 = float(self.mcp.read_IO(1) / 65355 * 5)
+                self.x1.append(x1)
+                self.x2.append(x2)        
+                
+            
+            self.d = self.plot.plot(self.t, self.x1)
+            self.d1 = self.plot2.plot(self.t, self.x2)
+            self.runCapture()
 
         # plot data: x, y values
-        self.d = self.plot.plot(self.x, self.y)
+        else:
+            self.d = self.plot.plot(self.x, self.y)
 
-        ##init the timer for real time plotting
-        self.timer = QtCore.QTimer()
-        self.timer.setInterval(10) #50ms
-        self.timer.timeout.connect(self.update_real_time)
-        self.timer.start()
+            ##init the timer for real time plotting
+            self.timer = QtCore.QTimer()
+            self.timer.setInterval(10) #50ms
+            self.timer.timeout.connect(self.update_real_time)
+            self.timer.start()
 
     def runCapture(self):
         self.timer = QtCore.QTimer()
-        self.timer.setInterval(10)  # 50ms
+        self.timer.setInterval(33)  # 50ms
         self.timer.timeout.connect(self.update_adc_measurement)
         self.timer.start()
 
     def update_adc_measurement(self):
         x1 = float(self.mcp.read_IO(0)/65355*5)
         x2 = float(self.mcp.read_IO(1) / 65355 * 5)
+        ttemp = self.t[1:] if len(self.t[1:]) <= 128 else self.t[1:128]
         x1temp = self.x1[1:] if len(self.x1[1:]) <= 128 else self.x1[1:128]
         x2temp = self.x2[1:] if len(self.x2[1:]) <= 128 else self.x2[1:128]
         self.x1 = np.concatenate((x1temp, [x1]), axis=None)
         self.x2 = np.concatenate((x2temp, [x2]), axis=None)
+        self.t = np.concatenate((ttemp, [ttemp[-1]+1]), axis=None)
+        
+        self.d.setData(self.t, self.x1)
+        self.d1.setData(self.t, self.x2)
 
     def update_real_time(self):
         self.x=np.concatenate((self.x[1:], [self.x[-1]+0.01]), axis=None)
