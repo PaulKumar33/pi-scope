@@ -17,7 +17,7 @@ class Plot2D(QtWidgets.QMainWindow):
         """self.plot = pg.PlotWidget()
         self.setCentralWidget(self.plot)"""
 
-        w = pg.GraphicsLayoutWidget()
+        w = pg.GraphicsLayoutWidget(size=(1000, 750))
 
         #for signal 1
         self.plot = w.addPlot(row=0, col=0)
@@ -30,7 +30,8 @@ class Plot2D(QtWidgets.QMainWindow):
         #for std2
         self.plot4 = w.addPlot(row=1, col=1)
         #for acculated
-        #self.plot5 = w.addPlot(row=2)
+        self.plot5 = w.addPlot(row=2, col=0)
+        self.plot6 = w.addPlot(row=2, col=1)
 
         self.setCentralWidget(w)
 
@@ -43,15 +44,18 @@ class Plot2D(QtWidgets.QMainWindow):
             print("Running ADC")
             self.mcp = mcp.mcp_external()
 
-            self.buffer = 16
+            self.buffer = 8
+            self.N = 7
 
-            self.var_1 = [0 for i in range(0)]
-            self.var_2 = []
+            self.var_1 = [0 for i in range(128)]
+            self.var_2 = [0 for i in range(128)]
             
             #lets fill the arrays first
             self.t = []
             self.x1 = []
             self.x2 = []
+            self.p1 = [0 for i in range(128)]
+            self.p2 = [0 for i in range(128)]
             
             for i in range(128):
                 self.t.append(i)
@@ -65,6 +69,9 @@ class Plot2D(QtWidgets.QMainWindow):
             self.d = self.plot.plot(self.t, self.x1)
             self.d1 = self.plot2.plot(self.t, self.x2)
             self.pl_var_1 = self.plot3.plot(self.t, self.var_1)
+            self.pl_var_2 = self.plot4.plot(self.t, self.var_2)
+            self.pl_p1 = self.plot5.plot(self.t, self.p1)
+            self.pl_p2 = self.plot6.plot(self.t, self.p2)
             self.runCapture()
 
         # plot data: x, y values
@@ -79,7 +86,7 @@ class Plot2D(QtWidgets.QMainWindow):
 
     def runCapture(self):
         self.timer = QtCore.QTimer()
-        self.timer.setInterval(33)  # 50ms
+        self.timer.setInterval(30)  # 50ms
         self.timer.timeout.connect(self.update_adc_measurement)
         self.timer.start()
 
@@ -96,16 +103,43 @@ class Plot2D(QtWidgets.QMainWindow):
         adj = 127-self.buffer
         vmu_1, vmu_2 = self.x1[adj], self.x2[adj]
         sigma1, sigma2 = 0,0
-        for k in range(1, len(self.buffer)):
+        for k in range(1, self.buffer):
             var1 = vmu_1+(1/self.buffer)*(self.x1[adj+k]-vmu_1)
+            var2 = vmu_2+(1/self.buffer)*(self.x2[adj+k]-vmu_2)
             v_partial_1 = sigma1+(self.x1[adj+k]-var1)*(self.x1[adj+k]-var1)
+            v_partial_2 = sigma1+(self.x2[adj+k]-var2)*(self.x2[adj+k]-var2)
 
         self.var_1 = self.var_1[1:] if len(self.var_1[1:]) <= 128 else self.var_1[1:128]
         self.var_1.append(v_partial_1)
+        
+        self.var_2 = self.var_2[1:] if len(self.var_2[1:]) <= 128 else self.var_2[1:128]
+        self.var_2.append(v_partial_2)
+        
+        total = v_partial_1+v_partial_2
+        
+        p1 = v_partial_1/total
+        p2 = v_partial_2/total
 
+        
+        self.p1 = self.p1[1:] if len(self.p1[1:]) <= 128 else self.p1[1:128]
+        p1 = 1/(self.N)*(self.p1[-1]+self.p1[-2]+self.p1[-3]+self.p1[-4]+self.p1[-5]+self.p1[-6]+p1)
+        #print(p1)
+        self.p1.append(p1)
+        self.p2 = self.p2[1:] if len(self.p2[1:]) <= 128 else self.p2[1:128]
+        p2 = 1/(self.N)*(self.p2[-1]+self.p2[-2]+self.p2[-3]+self.p2[-4]+self.p2[-5]+self.p2[-6]+p2)
+        #print(p1)
+        self.p2.append(p2)
+        
+        
+        #movavg filter
+        
 
         self.d.setData(self.t, self.x1)
         self.d1.setData(self.t, self.x2)
+        self.pl_var_1.setData(self.t, self.var_1)
+        self.pl_var_2.setData(self.t, self.var_2)
+        self.pl_p1.setData(self.t, self.p1)
+        self.pl_p2.setData(self.t, self.p2)
 
 
     def update_real_time(self):
