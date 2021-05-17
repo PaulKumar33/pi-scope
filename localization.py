@@ -30,7 +30,7 @@ class Plot2D(QtWidgets.QMainWindow):
         #for std2
         self.plot4 = w.addPlot(row=1, col=1)
         #for acculated
-        self.plot5 = w.addPlot(row=2)
+        #self.plot5 = w.addPlot(row=2)
 
         self.setCentralWidget(w)
 
@@ -43,16 +43,10 @@ class Plot2D(QtWidgets.QMainWindow):
             print("Running ADC")
             self.mcp = mcp.mcp_external()
 
-            self.std_1 = 0
-            self.std_2 = 0
+            self.buffer = 16
 
-            '''self.x1 = []
-            self.x2 = []
-            t = time.time()
-            t = time.time() - t * 1000
-            self.t = [0, 0]
-            self.x1 = [0, 0]
-            self.x2 = [0, 0]'''
+            self.var_1 = [0 for i in range(0)]
+            self.var_2 = []
             
             #lets fill the arrays first
             self.t = []
@@ -64,11 +58,13 @@ class Plot2D(QtWidgets.QMainWindow):
                 x1 = float(self.mcp.read_IO(0)/65355*5)
                 x2 = float(self.mcp.read_IO(1) / 65355 * 5)
                 self.x1.append(x1)
-                self.x2.append(x2)        
+                self.x2.append(x2)
+
                 
             
             self.d = self.plot.plot(self.t, self.x1)
             self.d1 = self.plot2.plot(self.t, self.x2)
+            self.pl_var_1 = self.plot3.plot(self.t, self.var_1)
             self.runCapture()
 
         # plot data: x, y values
@@ -96,9 +92,21 @@ class Plot2D(QtWidgets.QMainWindow):
         self.x1 = np.concatenate((x1temp, [x1]), axis=None)
         self.x2 = np.concatenate((x2temp, [x2]), axis=None)
         self.t = np.concatenate((ttemp, [ttemp[-1]+1]), axis=None)
-        
+
+        adj = 127-self.buffer
+        vmu_1, vmu_2 = self.x1[adj], self.x2[adj]
+        sigma1, sigma2 = 0,0
+        for k in range(1, len(self.buffer)):
+            var1 = vmu_1+(1/self.buffer)*(self.x1[adj+k]-vmu_1)
+            v_partial_1 = sigma1+(self.x1[adj+k]-var1)*(self.x1[adj+k]-var1)
+
+        self.var_1 = self.var_1[1:] if len(self.var_1[1:]) <= 128 else self.var_1[1:128]
+        self.var_1.append(v_partial_1)
+
+
         self.d.setData(self.t, self.x1)
         self.d1.setData(self.t, self.x2)
+
 
     def update_real_time(self):
         self.x=np.concatenate((self.x[1:], [self.x[-1]+0.01]), axis=None)
