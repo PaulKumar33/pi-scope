@@ -122,13 +122,11 @@ class Plot2D(QtWidgets.QMainWindow):
 
         
         self.p1 = self.p1[1:] if len(self.p1[1:]) <= 128 else self.p1[1:128]
-        p1 = 1/(self.N)*(self.p1[-1]+self.p1[-2]+self.p1[-3]+self.p1[-4]+self.p1[-5]+self.p1[-6]+p1)
-        #print(p1)
-        self.p1.append(p1)
+        p1 = self.update_array_movag(p1, self.p1[-1-self.N+1: -1], self.N)
+        self.p1 = np.concatenate((self.p1, [p1]), axis=None)
         self.p2 = self.p2[1:] if len(self.p2[1:]) <= 128 else self.p2[1:128]
-        p2 = 1/(self.N)*(self.p2[-1]+self.p2[-2]+self.p2[-3]+self.p2[-4]+self.p2[-5]+self.p2[-6]+p2)
-        #print(p1)
-        self.p2.append(p2)
+        p2 = self.update_array_movag(p2, self.p2[-1 - self.N + 1: -1], self.N)
+        self.p2 = np.concatenate((self.p2, [p2]), axis=None)
         
         
         #movavg filter
@@ -140,6 +138,9 @@ class Plot2D(QtWidgets.QMainWindow):
         self.pl_var_2.setData(self.t, self.var_2)
         self.pl_p1.setData(self.t, self.p1)
         self.pl_p2.setData(self.t, self.p2)
+
+    def update_array_movag(self, pt, arr, N):
+        return 1/N*(sum(arr)+pt)
 
 
     def update_real_time(self):
