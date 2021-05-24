@@ -63,6 +63,8 @@ class Plot2D(QtWidgets.QMainWindow):
             self.y2 = []
             self.p1 = [0 for i in range(128)]
             self.p2 = [0 for i in range(128)]
+            self.e1 = [0 for i in range(128)]
+            self.e2 = [0 for i in range(128)]
             
             for i in range(128):
                 self.t.append(i)
@@ -147,8 +149,11 @@ class Plot2D(QtWidgets.QMainWindow):
         #v_partial_2 = self.update_array_movag(v_partial_2, self.var_2[-1-self.N2+1:-1], self.N2)
         self.var_2.append(v_partial_2)
         
-        #tak e
+        e1temp = self.e1[1:] if len(self.e1[1:]) <= 128 else self.e1[1:128]
+        self.e1=np.concatenate((e1temp, [e1]), axis=None)
         
+        e2temp = self.e2[1:] if len(self.e2[1:]) <= 128 else self.e2[1:128]
+        self.e2=np.concatenate((e2temp, [e2]), axis=None)
         total = e1+e2
         
         p1 = e1/total
@@ -167,8 +172,8 @@ class Plot2D(QtWidgets.QMainWindow):
 
         self.d.setData(self.t, self.y1)
         self.d1.setData(self.t, self.y2)
-        self.pl_var_1.setData(self.t, self.var_1)
-        self.pl_var_2.setData(self.t, self.var_2)
+        self.pl_var_1.setData(self.t, self.e1)
+        self.pl_var_2.setData(self.t, self.e2)
         self.pl_p1.setData(self.t, self.p1)
         self.pl_p2.setData(self.t, self.p2)
 
@@ -194,15 +199,19 @@ class Plot2D(QtWidgets.QMainWindow):
         mk1 = 0
         cnt = 1
         while(cnt <= 1000):
+            if(cnt%100 == 0):
+                print("{}% done".format(cnt/1000.0 * 100))
             x1 = float(self.mcp.read_IO(0) / 65355 * 5)
             x2 = float(self.mcp.read_IO(1) / 65355 * 5)
 
             mk0 = mk0*(cnt-1.0)/cnt + x1/cnt
             mk1 = mk1 * (cnt - 1.0) / cnt + x2 / cnt
+            
+            cnt+=1
 
         print(">>>Steady state calculated: {0}, {1}".format(mk0, mk1))
         self.ss1 = mk0
-        self.ss1 = mk1
+        self.ss2 = mk1
 
 
     def update_real_time(self):
