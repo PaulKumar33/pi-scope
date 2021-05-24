@@ -8,6 +8,8 @@ from random import randint
 import os
 import time
 import csv
+import pandas as pd
+import impurity
 
 import mcp_3008_driver as mcp
 import RPi.GPIO as GPIO
@@ -86,7 +88,7 @@ class Plot2D(QtWidgets.QMainWindow):
             self.cnt = 0
             self.trigger_cnt = 0
 
-            df = pd.read_excel("./localization.csv")
+            df = pd.read_csv("./localization.csv")
             # df = df.drop(columns=['figure'])
             df_mat = df.values.tolist()
 
