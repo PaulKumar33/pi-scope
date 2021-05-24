@@ -92,8 +92,13 @@ class Plot2D(QtWidgets.QMainWindow):
             # df = df.drop(columns=['figure'])
             df_mat = df.values.tolist()
 
+            df_direction = pd.read_csv("./direction_data.csv")
+            mf_mat_direction = df_direction.values.tolist()
+
             self.tree = impurity.build_tree(df_mat)
+            self.tree_dir = impurity.build_tree(mf_mat_direction)
             impurity.print_tree(self.tree)
+            impurity.print_tree(self.tree_dir)
             print("starting capture")
 
 
@@ -259,10 +264,20 @@ class Plot2D(QtWidgets.QMainWindow):
                 print("FEATURE SET")
                 print("p11: {0} \n P12: {1} \n P21: {2} \n P22: {3}".format(s1_p1, s1_p2, s2_p1, s2_p2))
                 print("g1: {0} \n g2: {1} \n t1: {2} \n t2: {3}".format(s1_gr, s2_gr, self.first_trigger, self.last_trigger))
+
+                _classify = impurity.classify([self.first_trigger, self.last_trigger, s1_gr, s2_gr, s1_p1, s1_p2, s2_p1, s2_p2],
+                                              self.tree_dir)
+                max_guess = 0
+                max_class = None
+
+                for _class_ in _classify:
+                    if (_classify[_class_] > max_guess):
+                        max_class, max_guess = _class_, _classify[_class_]
+                print("Predicted: {}".format(max_class))
                 
-                with open("direction_data.csv", "a") as dd:
+                '''with open("direction_data.csv", "a") as dd:
                     writer = csv.writer(dd)
-                    writer.writerow([self.first_trigger, self.last_trigger, s1_gr, s2_gr, s1_p1, s1_p2, s2_p1, s2_p2])
+                    writer.writerow([self.first_trigger, self.last_trigger, s1_gr, s2_gr, s1_p1, s1_p2, s2_p1, s2_p2])'''
             self.trigger_cnt = 0
             self.p2_peaks, self.p1_peaks = [], []
             self.first_trigger, self.last_trigger = None, None
