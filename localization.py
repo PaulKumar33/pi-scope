@@ -71,6 +71,8 @@ class Plot2D(QtWidgets.QMainWindow):
             self.p2_peaks = []
             self.p1_t = []
             self.p2_t = []
+            self.first_trigger = None
+            self.last_trigger = None
 
 
             #set tracking variables for csv
@@ -82,6 +84,7 @@ class Plot2D(QtWidgets.QMainWindow):
             self.tp1 = []
             self.tp2 = []
             self.cnt = 0
+            self.trigger_cnt = 0
 
 
             self.e1 = [0 for i in range(128)]
@@ -184,29 +187,82 @@ class Plot2D(QtWidgets.QMainWindow):
         p2 = e2/total
         
         
-        if(e1 >= 0.75 or e2 >= 0.75):
+        if(e1 >= 0.9 or e2 >= 0.9):
+            # get the first sensor high
+            self.trigger_cnt += 1
+            if(self.first_trigger == None and p1 >= p2):
+                self.first_trigger = 1
+            elif(self.first_trigger == None and p1 < p2):
+                self.first_trigger = 0
+                
+            if(p1 >= p2):
+                self.last_trigger = 1
+            else:
+                self.last_trigger = 0
+                
             self.schmit_trig = 1
             ttrigger = self.trigger[1:] if len(self.trigger[1:]) <= 128 else self.trigger[1:128]
             self.trigger = np.concatenate((ttrigger, [1]),axis=None)
             if(p1 >= 0.55):
                 print("Location: Right")
+                with open('localization.csv', 'a') as fd1:
+                    writer = csv.writer(fd1)
+                    writer.writerow([p1, p2, e1, e2])
+                    
             elif(p2 >= 0.55):
                 print("Location: left")
+                with open('localization.csv', 'a') as fd1:
+                    writer = csv.writer(fd1)
+                    writer.writerow([p1, p2, e1, e2])
                 
             if(np.abs(self.y1[-1] - self.ss1) >= 0.3):
                 self.update_s1_peak()
             if(np.abs(self.y2[-1] - self.ss2) >= 0.3):
                 self.update_s2_peak()
-        elif(e1 <= 0.45 and e2 <= 0.45 and self.schmit_trig == 1):
+        elif(e1 <= 0.1 and e2 <= 0.1 and self.schmit_trig == 1):
             self.schmit_trig = 0
             ttrigger = self.trigger[1:] if len(self.trigger[1:]) <= 128 else self.trigger[1:128]
             self.trigger = np.concatenate((ttrigger, [0]),axis=None)
             print("THIS IS A TEST FOR PEAKS")
             print(self.p1_peaks)
             print(self.p2_peaks)
+            
+            #lets get the features here
+            if(self.trigger_cnt >= 10):
+                if(len(self.p1_peaks) > 0):
+                    s1_p1 = self.p1_peaks[0]
+                    s1_p2 = self.p1_peaks[-1]
+                    s1_gr = s1_p2 - s1_p1
+                else:
+                    s1_p1 = None
+                    s1_p2 = None
+                    s1_gr = 9999
+                    
+                if(len(self.p2_peaks) > 0):
+                    s2_p1 = self.p2_peaks[0]
+                    s2_p2 = self.p2_peaks[-1]
+                    s2_gr = s2_p2 - s2_p1
+                else:
+                    s2_p1 = None
+                    s2_p2 = None
+                    s2_gr = 9999
+                
+                print("FEATURE SET")
+                print("p11: {0} \n P12: {1} \n P21: {2} \n P22: {3}".format(s1_p1, s1_p2, s2_p1, s2_p2))
+                print("g1: {0} \n g2: {1} \n t1: {2} \n t2: {3}".format(s1_gr, s2_gr, self.first_trigger, self.last_trigger))
+            self.trigger_cnt = 0
+            self.p2_peaks, self.p1_peaks = [], []
+            self.first_trigger, self.last_trigger = None, None
+            s1_p1, s1_p2, s2_p1, s2_p2 = None, None, None, None
+            s1_gr, s2_gr = None, None
+            
+            
+            
             self.d1.setData(self.t, self.y2)
+            self.d.setData(self.t, self.y1)
         elif(self.schmit_trig == 0):
             self.schmit_trig = 0
+            self.trigger_ct = 0
             ttrigger = self.trigger[1:] if len(self.trigger[1:]) <= 128 else self.trigger[1:128]
             self.trigger = np.concatenate((ttrigger, [0]),axis=None)
         
