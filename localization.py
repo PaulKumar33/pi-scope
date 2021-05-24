@@ -238,7 +238,7 @@ class Plot2D(QtWidgets.QMainWindow):
                 self.update_s1_peak()
             if(np.abs(self.y2[-1] - self.ss2) >= 0.3):
                 self.update_s2_peak()
-        elif(e1 <= 0.1 and e2 <= 0.1 and self.schmit_trig == 1):
+        elif(e1 <= 0.075 and e2 <= 0.075 and self.schmit_trig == 1):
             self.schmit_trig = 0
             ttrigger = self.trigger[1:] if len(self.trigger[1:]) <= 128 else self.trigger[1:128]
             self.trigger = np.concatenate((ttrigger, [0]),axis=None)
