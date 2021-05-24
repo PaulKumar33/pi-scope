@@ -45,7 +45,10 @@ class Plot2D(QtWidgets.QMainWindow):
             self.mcp = mcp.mcp_external()
 
             self.buffer = 8
-            self.N = 7
+            self.N = 3
+            self.N2 = 3
+            self.M=39
+            self.hd = self.build_fir_square(self.M, np.pi/3)
 
             self.var_1 = [0 for i in range(128)]
             self.var_2 = [0 for i in range(128)]
@@ -54,6 +57,8 @@ class Plot2D(QtWidgets.QMainWindow):
             self.t = []
             self.x1 = []
             self.x2 = []
+            self.y1 = []
+            self.y2 = []
             self.p1 = [0 for i in range(128)]
             self.p2 = [0 for i in range(128)]
             
@@ -61,10 +66,18 @@ class Plot2D(QtWidgets.QMainWindow):
                 self.t.append(i)
                 x1 = float(self.mcp.read_IO(0)/65355*5)
                 x2 = float(self.mcp.read_IO(1) / 65355 * 5)
-                self.x1.append(x1)
-                self.x2.append(x2)
-
-                
+                if(len(self.x1) > self.M-1):
+                    self.x1 = np.concatenate((self.x1, [x1]), axis=None)
+                    self.x2 = np.concatenate((self.x2, [x2]), axis=None)
+                    y1 = self.filt(self.hd, self.x1[-self.M:])
+                    self.y1 = np.concatenate((self.y1, [y1]), axis=None)
+                    self.y2 = self.x2
+                    
+                else:
+                    self.x1.append(x1)
+                    self.x2.append(x2)
+                    self.y1 = self.x1
+                    self.y2 = self.x2
             
             self.d = self.plot.plot(self.t, self.x1)
             self.d1 = self.plot2.plot(self.t, self.x2)
@@ -86,9 +99,10 @@ class Plot2D(QtWidgets.QMainWindow):
 
     def runCapture(self):
         self.timer = QtCore.QTimer()
-        self.timer.setInterval(30)  # 50ms
+        self.timer.setInterval(10)  # 50ms
         self.timer.timeout.connect(self.update_adc_measurement)
         self.timer.start()
+        
 
     def update_adc_measurement(self):
         x1 = float(self.mcp.read_IO(0)/65355*5)
@@ -96,30 +110,44 @@ class Plot2D(QtWidgets.QMainWindow):
         ttemp = self.t[1:] if len(self.t[1:]) <= 128 else self.t[1:128]
         x1temp = self.x1[1:] if len(self.x1[1:]) <= 128 else self.x1[1:128]
         x2temp = self.x2[1:] if len(self.x2[1:]) <= 128 else self.x2[1:128]
+        #x1 = self.update_array_movag(x1, x1temp[-1-self.N2+1:-1], self.N2)
+        #x2 = self.update_array_movag(x2, x2temp[-1-self.N2+1:-1], self.N2)
         self.x1 = np.concatenate((x1temp, [x1]), axis=None)
         self.x2 = np.concatenate((x2temp, [x2]), axis=None)
+        
+        y1 = self.filt(self.hd, self.x1[-self.M:])
+        y1temp = self.y1[1:] if len(self.y1[1:]) <= 128 else self.y1[1:128]
+        self.y1=np.concatenate((y1temp, [y1]), axis=None)
+        
+        y2 = self.filt(self.hd, self.x2[-self.M:])
+        y2temp = self.y2[1:] if len(self.y2[1:]) <= 128 else self.y2[1:128]
+        self.y2=np.concatenate((y2temp, [y2]), axis=None)
+        
         self.t = np.concatenate((ttemp, [ttemp[-1]+1]), axis=None)
 
         adj = 127-self.buffer
-        vmu_1, vmu_2 = self.x1[adj], self.x2[adj]
+        vmu_1, vmu_2 = self.y1[adj], self.y2[adj]
         sigma1, sigma2 = 0,0
         for k in range(1, self.buffer):
-            var1 = vmu_1+(1/self.buffer)*(self.x1[adj+k]-vmu_1)
-            var2 = vmu_2+(1/self.buffer)*(self.x2[adj+k]-vmu_2)
-            v_partial_1 = sigma1+(self.x1[adj+k]-var1)*(self.x1[adj+k]-var1)
-            v_partial_2 = sigma1+(self.x2[adj+k]-var2)*(self.x2[adj+k]-var2)
+            var1 = vmu_1+(1/self.buffer)*(self.y1[adj+k]-vmu_1)
+            var2 = vmu_2+(1/self.buffer)*(self.y2[adj+k]-vmu_2)
+            v_partial_1 = sigma1+(self.y1[adj+k]-var1)*(self.y1[adj+k]-var1)
+            v_partial_2 = sigma1+(self.y2[adj+k]-var2)*(self.y2[adj+k]-var2)
 
         self.var_1 = self.var_1[1:] if len(self.var_1[1:]) <= 128 else self.var_1[1:128]
+        #v_partial_1 = self.update_array_movag(v_partial_1, self.var_1[-1-self.N2+1:-1], self.N2)
         self.var_1.append(v_partial_1)
         
         self.var_2 = self.var_2[1:] if len(self.var_2[1:]) <= 128 else self.var_2[1:128]
+        #v_partial_2 = self.update_array_movag(v_partial_2, self.var_2[-1-self.N2+1:-1], self.N2)
         self.var_2.append(v_partial_2)
         
-        total = v_partial_1+v_partial_2
+        #tak e
+        
+        total = self.var_1[-1]+self.var_2[-1]
         
         p1 = v_partial_1/total
         p2 = v_partial_2/total
-
         
         self.p1 = self.p1[1:] if len(self.p1[1:]) <= 128 else self.p1[1:128]
         p1 = self.update_array_movag(p1, self.p1[-1-self.N+1: -1], self.N)
@@ -132,8 +160,8 @@ class Plot2D(QtWidgets.QMainWindow):
         #movavg filter
         
 
-        self.d.setData(self.t, self.x1)
-        self.d1.setData(self.t, self.x2)
+        self.d.setData(self.t, self.y1)
+        self.d1.setData(self.t, self.y2)
         self.pl_var_1.setData(self.t, self.var_1)
         self.pl_var_2.setData(self.t, self.var_2)
         self.pl_p1.setData(self.t, self.p1)
@@ -141,6 +169,20 @@ class Plot2D(QtWidgets.QMainWindow):
 
     def update_array_movag(self, pt, arr, N):
         return 1/N*(sum(arr)+pt)
+    
+    def filt(self, h, x):
+        return np.dot(h, np.flip(x))
+    
+    def build_fir_square(self, width, wc):
+        '''builds the fir window square filter'''
+        M = width
+        n = np.arange(0,M,1)
+        
+        inner = wc*(n-(M-1)/2)
+        hd = np.sin(inner)/(np.pi*(n-(M-1)/2))
+        hd[int((M-1)/2)] = wc/np.pi
+        
+        return hd
 
 
     def update_real_time(self):
