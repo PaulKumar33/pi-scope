@@ -184,6 +184,21 @@ class Plot2D(QtWidgets.QMainWindow):
         
         return hd
 
+    def calcSS(self):
+        mk0 = 0
+        mk1 = 0
+        cnt = 1
+        while(cnt <= 1000):
+            x1 = float(self.mcp.read_IO(0) / 65355 * 5)
+            x2 = float(self.mcp.read_IO(1) / 65355 * 5)
+
+            mk0 = mk0*(cnt-1.0)/cnt + x1/cnt
+            mk1 = mk1 * (cnt - 1.0) / cnt + x2 / cnt
+
+        print(">>>Steady state calculated: {0}, {1}".format(mk0, mk1))
+        self.ss1 = mk0
+        self.ss1 = mk1
+
 
     def update_real_time(self):
         self.x=np.concatenate((self.x[1:], [self.x[-1]+0.01]), axis=None)
