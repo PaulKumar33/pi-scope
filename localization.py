@@ -213,17 +213,7 @@ class Plot2D(QtWidgets.QMainWindow):
             self.schmit_trig = 1
             ttrigger = self.trigger[1:] if len(self.trigger[1:]) <= 128 else self.trigger[1:128]
             self.trigger = np.concatenate((ttrigger, [1]),axis=None)
-            '''if(p1 >= 0.55):
-                print("Location: Right")
-                with open('localization.csv', 'a') as fd1:
-                    writer = csv.writer(fd1)
-                    writer.writerow([p1, p2, e1, e2])
-                    
-            elif(p2 >= 0.55):
-                print("Location: left")
-                with open('localization.csv', 'a') as fd1:
-                    writer = csv.writer(fd1)
-                    writer.writerow([p1, p2, e1, e2])'''
+            
             _classify = impurity.classify([p1,p2,e1,e2],
                                           self.tree)
             max_guess = 0
@@ -269,6 +259,10 @@ class Plot2D(QtWidgets.QMainWindow):
                 print("FEATURE SET")
                 print("p11: {0} \n P12: {1} \n P21: {2} \n P22: {3}".format(s1_p1, s1_p2, s2_p1, s2_p2))
                 print("g1: {0} \n g2: {1} \n t1: {2} \n t2: {3}".format(s1_gr, s2_gr, self.first_trigger, self.last_trigger))
+                
+                with open("direction_data.csv", "a") as dd:
+                    writer = csv.writer(dd)
+                    writer.writerow([self.first_trigger, self.last_trigger, s1_gr, s2_gr, s1_p1, s1_p2, s2_p1, s2_p2])
             self.trigger_cnt = 0
             self.p2_peaks, self.p1_peaks = [], []
             self.first_trigger, self.last_trigger = None, None
@@ -314,7 +308,7 @@ class Plot2D(QtWidgets.QMainWindow):
         self.pl_p2.setData(self.t, self.p2)
         self.t_plot.setData(self.t, self.trigger)'''
 
-        if(self.cnt%3000 == 0):
+        '''if(self.cnt%3000 == 0):
             print("{}% Done".format(self.cnt/3000*100))
         if(self.cnt >= 3000):
             print("done")
@@ -326,7 +320,7 @@ class Plot2D(QtWidgets.QMainWindow):
                     writer.writerow([self.tt[i], self.ty1[i], self.ty2[i], self.te1[i], self.te2[i], self.tp1[i], self.tp2[i]])
                     
             time.sleep(10)
-            return
+            return'''
         self.cnt +=1
     
     def update_s1_peak(self):
