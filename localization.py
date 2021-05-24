@@ -63,6 +63,15 @@ class Plot2D(QtWidgets.QMainWindow):
             self.y2 = []
             self.p1 = [0 for i in range(128)]
             self.p2 = [0 for i in range(128)]
+
+            #set tracking variables for csv
+            self.tt  = []
+            self.ty1 = []
+            self.ty2 = []
+            self.te1 = []
+            self.te2 = []
+            self.tp1 = []
+            self.tp2 = []
             
             for i in range(128):
                 self.t.append(i)
@@ -160,7 +169,9 @@ class Plot2D(QtWidgets.QMainWindow):
         self.p2 = self.p2[1:] if len(self.p2[1:]) <= 128 else self.p2[1:128]
         p2 = self.update_array_movag(p2, self.p2[-1 - self.N + 1: -1], self.N)
         self.p2 = np.concatenate((self.p2, [p2]), axis=None)
-        
+
+
+        self.tt = np.concatenate()
         
         #movavg filter
         
