@@ -128,11 +128,14 @@ class Plot2D(QtWidgets.QMainWindow):
         adj = 127-self.buffer
         vmu_1, vmu_2 = self.y1[adj], self.y2[adj]
         sigma1, sigma2 = 0,0
+        e1, e2 =0, 0
         for k in range(1, self.buffer):
             var1 = vmu_1+(1/self.buffer)*(self.y1[adj+k]-vmu_1)
             var2 = vmu_2+(1/self.buffer)*(self.y2[adj+k]-vmu_2)
             v_partial_1 = sigma1+(self.y1[adj+k]-var1)*(self.y1[adj+k]-var1)
             v_partial_2 = sigma1+(self.y2[adj+k]-var2)*(self.y2[adj+k]-var2)
+            e1 += np.power(np.abs(self.y1[adj+k] - self.ss1),2)
+            e2 += np.power(np.abs(self.y2[adj + k] - self.ss2), 2)
 
         self.var_1 = self.var_1[1:] if len(self.var_1[1:]) <= 128 else self.var_1[1:128]
         #v_partial_1 = self.update_array_movag(v_partial_1, self.var_1[-1-self.N2+1:-1], self.N2)
@@ -144,10 +147,10 @@ class Plot2D(QtWidgets.QMainWindow):
         
         #tak e
         
-        total = self.var_1[-1]+self.var_2[-1]
+        total = e1+e2
         
-        p1 = v_partial_1/total
-        p2 = v_partial_2/total
+        p1 = e1/total
+        p2 = e2/total
         
         self.p1 = self.p1[1:] if len(self.p1[1:]) <= 128 else self.p1[1:128]
         p1 = self.update_array_movag(p1, self.p1[-1-self.N+1: -1], self.N)
