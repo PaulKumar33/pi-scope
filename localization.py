@@ -64,6 +64,7 @@ class Plot2D(QtWidgets.QMainWindow):
             self.p1 = [0 for i in range(128)]
             self.p2 = [0 for i in range(128)]
 
+
             #set tracking variables for csv
             self.tt  = []
             self.ty1 = []
@@ -72,6 +73,11 @@ class Plot2D(QtWidgets.QMainWindow):
             self.te2 = []
             self.tp1 = []
             self.tp2 = []
+            self.cnt = 0
+
+
+            self.e1 = [0 for i in range(128)]
+            self.e2 = [0 for i in range(128)]
             
             for i in range(128):
                 self.t.append(i)
@@ -113,7 +119,6 @@ class Plot2D(QtWidgets.QMainWindow):
         self.timer.setInterval(10)  # 50ms
         self.timer.timeout.connect(self.update_adc_measurement)
         self.timer.start()
-        
 
     def update_adc_measurement(self):
         x1 = float(self.mcp.read_IO(0)/65355*5)
@@ -156,8 +161,11 @@ class Plot2D(QtWidgets.QMainWindow):
         #v_partial_2 = self.update_array_movag(v_partial_2, self.var_2[-1-self.N2+1:-1], self.N2)
         self.var_2.append(v_partial_2)
         
-        #tak e
+        e1temp = self.e1[1:] if len(self.e1[1:]) <= 128 else self.e1[1:128]
+        self.e1=np.concatenate((e1temp, [e1]), axis=None)
         
+        e2temp = self.e2[1:] if len(self.e2[1:]) <= 128 else self.e2[1:128]
+        self.e2=np.concatenate((e2temp, [e2]), axis=None)
         total = e1+e2
         
         p1 = e1/total
@@ -171,17 +179,34 @@ class Plot2D(QtWidgets.QMainWindow):
         self.p2 = np.concatenate((self.p2, [p2]), axis=None)
 
 
-        self.tt = np.concatenate()
-        
+        self.tt = np.concatenate((self.tt, [self.t[-1]]), axis=None)
+        self.ty1 = np.concatenate((self.ty1, [self.y1[-1]]),axis=None)
+        self.ty2 = np.concatenate((self.ty2, [self.y2[-1]]), axis=None)
+        self.te1 = np.concatenate((self.te1, [self.e1[-1]]), axis=None)
+        self.te2 = np.concatenate((self.te2, [self.e2[-1]]), axis=None)
+        self.tp1 = np.concatenate((self.tp1, [self.p1[-1]]), axis=None)
+        self.tp2 = np.concatenate((self.tp2, [self.p2[-1]]), axis=None)
         #movavg filter
         
 
         self.d.setData(self.t, self.y1)
         self.d1.setData(self.t, self.y2)
-        self.pl_var_1.setData(self.t, self.var_1)
-        self.pl_var_2.setData(self.t, self.var_2)
+        self.pl_var_1.setData(self.t, self.e1)
+        self.pl_var_2.setData(self.t, self.e2)
         self.pl_p1.setData(self.t, self.p1)
         self.pl_p2.setData(self.t, self.p2)
+
+        if(self.cnt%1000 == 0):
+            print("{}% Done".format(self.cnt/1000*100))
+        if(cnt >= 10000):
+            print("done")
+            with open('tracked.csv', 'a') as fd:
+                # fd.write(self.csv_write)
+                writer = csv.writer(fd)
+                for i in range(len(self.ty1)):
+                    writer.writerow([self.tt[i], self.ty1[i], self.ty2[i], self.te1[i], self.te2[i], self.tp1[i], self.tp2[i]])
+            return
+        cnt +=1
 
     def update_array_movag(self, pt, arr, N):
         return 1/N*(sum(arr)+pt)
@@ -205,15 +230,19 @@ class Plot2D(QtWidgets.QMainWindow):
         mk1 = 0
         cnt = 1
         while(cnt <= 1000):
+            if(cnt%100 == 0):
+                print("{}% done".format(cnt/1000.0 * 100))
             x1 = float(self.mcp.read_IO(0) / 65355 * 5)
             x2 = float(self.mcp.read_IO(1) / 65355 * 5)
 
             mk0 = mk0*(cnt-1.0)/cnt + x1/cnt
             mk1 = mk1 * (cnt - 1.0) / cnt + x2 / cnt
+            
+            cnt+=1
 
         print(">>>Steady state calculated: {0}, {1}".format(mk0, mk1))
         self.ss1 = mk0
-        self.ss1 = mk1
+        self.ss2 = mk1
 
 
     def update_real_time(self):
