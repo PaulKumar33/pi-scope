@@ -50,6 +50,8 @@ class Plot2D(QtWidgets.QMainWindow):
             self.M=39
             self.hd = self.build_fir_square(self.M, np.pi/3)
 
+            self.calcSS()
+
             self.var_1 = [0 for i in range(128)]
             self.var_2 = [0 for i in range(128)]
             
