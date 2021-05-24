@@ -255,6 +255,40 @@ class Plot2D(QtWidgets.QMainWindow):
         self.cnt +=1
     
     def update_s1_peak(self):
+        if (self.y1[-3] < self.y1[-2] and self.y1[-1] <= self.y1[-2] and np.abs(self.y1[-2] - self.ss1) >= 0.3):
+            if (len(self.p1_peaks) > 0):
+                if (abs(self.p1_peaks[-1] - self.y1[-2]) >= 0.5):
+                    self.p1_peaks.append(self.y1[-2])
+                    self.p1_t.append(self.t[-2])
+            else:
+                self.p1_peaks.append(self.y1[-2])
+                self.p1_t.append(self.t[-2])
+        elif (self.y1[-3] <= self.y1[-2] and self.y1[-1] < self.y1[-2] and np.abs(self.y1[-2] - self.ss1) >= 0.3):
+            if (len(self.p1_peaks) > 0):
+                if (abs(self.p1_peaks[-1] - self.y1[-2]) >= 0.5):
+                    self.p1_peaks.append(self.y1[-2])
+                    self.p1_t.append(self.t[-2])
+            else:
+                self.p1_peaks.append(self.y1[-2])
+                self.p1_t.append(self.t[-2])
+
+        elif (self.y1[-3] >= self.y1[-2] and self.y1[-1] > self.y1[-2] and np.abs(self.y1[-2] - self.ss1) >= 0.3):
+            if (len(self.p1_peaks) > 0):
+                if (abs(self.p1_peaks[-1] - self.y1[-2]) >= 0.5):
+                    self.p1_peaks.append(self.y1[-2])
+                    self.p1_t.append(self.t[-2])
+            else:
+                self.p1_peaks.append(self.y1[-2])
+                self.p1_t.append(self.t[-2])
+
+        elif (self.y1[-3] > self.y1[-2] and self.y1[-1] >= self.y1[-2] and np.abs(self.y1[-2] - self.ss1) >= 0.3):
+            if (len(self.p1_peaks) > 0):
+                if (abs(self.p1_peaks[-1] - self.y1[-2]) >= 0.5):
+                    self.p1_peaks.append(self.y1[-2])
+                    self.p1_t.append(self.t[-2])
+            else:
+                self.p1_peaks.append(self.y1[-2])
+                self.p1_t.append(self.t[-2])
         
             
     def update_s2_peak(self):
