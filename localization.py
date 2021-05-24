@@ -86,6 +86,14 @@ class Plot2D(QtWidgets.QMainWindow):
             self.cnt = 0
             self.trigger_cnt = 0
 
+            df = pd.read_excel("./localization.csv")
+            # df = df.drop(columns=['figure'])
+            df_mat = df.values.tolist()
+
+            self.tree = impurity.build_tree(df_mat)
+            impurity.print_tree(self.tree)
+            print("starting capture")
+
 
             self.e1 = [0 for i in range(128)]
             self.e2 = [0 for i in range(128)]
@@ -203,7 +211,7 @@ class Plot2D(QtWidgets.QMainWindow):
             self.schmit_trig = 1
             ttrigger = self.trigger[1:] if len(self.trigger[1:]) <= 128 else self.trigger[1:128]
             self.trigger = np.concatenate((ttrigger, [1]),axis=None)
-            if(p1 >= 0.55):
+            '''if(p1 >= 0.55):
                 print("Location: Right")
                 with open('localization.csv', 'a') as fd1:
                     writer = csv.writer(fd1)
@@ -213,7 +221,16 @@ class Plot2D(QtWidgets.QMainWindow):
                 print("Location: left")
                 with open('localization.csv', 'a') as fd1:
                     writer = csv.writer(fd1)
-                    writer.writerow([p1, p2, e1, e2])
+                    writer.writerow([p1, p2, e1, e2])'''
+            _classify = impurity.classify([p1,p2,e1,e2],
+                                          self.tree)
+            max_guess = 0
+            max_class = None
+
+            for _class_ in _classify:
+                if (_classify[_class_] > max_guess):
+                    max_class, max_guess = _class_, _classify[_class_]
+            print("Predicted: {}".format(max_class))
                 
             if(np.abs(self.y1[-1] - self.ss1) >= 0.3):
                 self.update_s1_peak()
