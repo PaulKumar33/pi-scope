@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 import pyqtgraph as pg
 from PyQt5 import QtWidgets
 import sys
@@ -33,6 +34,7 @@ class Plot2D(QtWidgets.QMainWindow):
         #for acculated
         self.plot5 = w.addPlot(row=2, col=0)
         self.plot6 = w.addPlot(row=2, col=1)
+        self.plot7 = w.addPlot(row=3, col=0)
 
         self.setCentralWidget(w)
 
@@ -64,6 +66,11 @@ class Plot2D(QtWidgets.QMainWindow):
             self.y2 = []
             self.p1 = [0 for i in range(128)]
             self.p2 = [0 for i in range(128)]
+            self.trigger = [0 for i in range(128)]
+            self.p1_peaks = []
+            self.p2_peaks = []
+            self.p1_t = []
+            self.p2_t = []
 
 
             #set tracking variables for csv
@@ -79,6 +86,8 @@ class Plot2D(QtWidgets.QMainWindow):
 
             self.e1 = [0 for i in range(128)]
             self.e2 = [0 for i in range(128)]
+            
+            self.schmit_trig = 0
             
             for i in range(128):
                 self.t.append(i)
@@ -103,6 +112,7 @@ class Plot2D(QtWidgets.QMainWindow):
             self.pl_var_2 = self.plot4.plot(self.t, self.var_2)
             self.pl_p1 = self.plot5.plot(self.t, self.p1)
             self.pl_p2 = self.plot6.plot(self.t, self.p2)
+            self.t_plot = self.plot7.plot(self.t, self.trigger)
             self.runCapture()
 
         # plot data: x, y values
@@ -117,7 +127,7 @@ class Plot2D(QtWidgets.QMainWindow):
 
     def runCapture(self):
         self.timer = QtCore.QTimer()
-        self.timer.setInterval(10)  # 50ms
+        self.timer.setInterval(50)  # 50ms
         self.timer.timeout.connect(self.update_adc_measurement)
         self.timer.start()
 
@@ -167,10 +177,41 @@ class Plot2D(QtWidgets.QMainWindow):
         
         e2temp = self.e2[1:] if len(self.e2[1:]) <= 128 else self.e2[1:128]
         self.e2=np.concatenate((e2temp, [e2]), axis=None)
+        
         total = e1+e2
         
         p1 = e1/total
         p2 = e2/total
+        
+        
+        if(e1 >= 0.75 or e2 >= 0.75):
+            self.schmit_trig = 1
+            ttrigger = self.trigger[1:] if len(self.trigger[1:]) <= 128 else self.trigger[1:128]
+            self.trigger = np.concatenate((ttrigger, [1]),axis=None)
+            if(p1 >= 0.55):
+                print("Location: Right")
+            elif(p2 >= 0.55):
+                print("Location: left")
+                
+            if(np.abs(self.y1[-1] - self.ss1) >= 0.3):
+                self.update_s1_peak()
+            if(np.abs(self.y2[-1] - self.ss2) >= 0.3):
+                self.update_s2_peak()
+        elif(e1 <= 0.45 and e2 <= 0.45 and self.schmit_trig == 1):
+            self.schmit_trig = 0
+            ttrigger = self.trigger[1:] if len(self.trigger[1:]) <= 128 else self.trigger[1:128]
+            self.trigger = np.concatenate((ttrigger, [0]),axis=None)
+            print("THIS IS A TEST FOR PEAKS")
+            print(self.p1_peaks)
+            print(self.p2_peaks)
+            self.d1.setData(self.t, self.y2)
+        elif(self.schmit_trig == 0):
+            self.schmit_trig = 0
+            ttrigger = self.trigger[1:] if len(self.trigger[1:]) <= 128 else self.trigger[1:128]
+            self.trigger = np.concatenate((ttrigger, [0]),axis=None)
+        
+        #simple direction estimation
+        
         
         self.p1 = self.p1[1:] if len(self.p1[1:]) <= 128 else self.p1[1:128]
         p1 = self.update_array_movag(p1, self.p1[-1-self.N+1: -1], self.N)
@@ -190,15 +231,16 @@ class Plot2D(QtWidgets.QMainWindow):
         #movavg filter
         
 
-        self.d.setData(self.t, self.y1)
+        '''self.d.setData(self.t, self.y1)
         self.d1.setData(self.t, self.y2)
         self.pl_var_1.setData(self.t, self.e1)
         self.pl_var_2.setData(self.t, self.e2)
         self.pl_p1.setData(self.t, self.p1)
         self.pl_p2.setData(self.t, self.p2)
+        self.t_plot.setData(self.t, self.trigger)'''
 
-        if(self.cnt%300 == 0):
-            print("{}% Done".format(self.cnt/300*100))
+        if(self.cnt%3000 == 0):
+            print("{}% Done".format(self.cnt/3000*100))
         if(self.cnt >= 3000):
             print("done")
             with open('tracked.csv', 'a') as fd:
@@ -211,6 +253,45 @@ class Plot2D(QtWidgets.QMainWindow):
             time.sleep(10)
             return
         self.cnt +=1
+    
+    def update_s1_peak(self):
+        
+            
+    def update_s2_peak(self):
+        if(self.y2[-3] < self.y2[-2] and self.y2[-1] <= self.y2[-2] and np.abs(self.y2[-2] - self.ss2) >= 0.3):
+            if(len(self.p2_peaks) > 0):
+                if(abs(self.p2_peaks[-1] - self.y2[-2]) >= 0.5):
+                    self.p2_peaks.append(self.y2[-2])
+                    self.p2_t.append(self.t[-2])
+            else:
+                self.p2_peaks.append(self.y2[-2])
+                self.p2_t.append(self.t[-2])
+        elif(self.y2[-3] <= self.y2[-2] and self.y2[-1] < self.y2[-2] and np.abs(self.y2[-2] - self.ss2) >= 0.3):
+            if(len(self.p2_peaks) > 0):
+                if(abs(self.p2_peaks[-1] - self.y2[-2]) >= 0.5):
+                    self.p2_peaks.append(self.y2[-2])
+                    self.p2_t.append(self.t[-2])
+            else:
+                self.p2_peaks.append(self.y2[-2])
+                self.p2_t.append(self.t[-2])
+            
+        elif(self.y2[-3] >= self.y2[-2] and self.y2[-1] > self.y2[-2] and np.abs(self.y2[-2] - self.ss2) >= 0.3):
+            if(len(self.p2_peaks) > 0):
+                if(abs(self.p2_peaks[-1] - self.y2[-2]) >= 0.5):
+                    self.p2_peaks.append(self.y2[-2])
+                    self.p2_t.append(self.t[-2])
+            else:
+                self.p2_peaks.append(self.y2[-2])
+                self.p2_t.append(self.t[-2])
+                
+        elif(self.y2[-3] > self.y2[-2] and self.y2[-1] >= self.y2[-2] and np.abs(self.y2[-2] - self.ss2) >= 0.3):
+            if(len(self.p2_peaks) > 0):
+                if(abs(self.p2_peaks[-1] - self.y2[-2]) >= 0.5):
+                    self.p2_peaks.append(self.y2[-2])
+                    self.p2_t.append(self.t[-2])
+            else:
+                self.p2_peaks.append(self.y2[-2])
+                self.p2_t.append(self.t[-2])
 
     def update_array_movag(self, pt, arr, N):
         return 1/N*(sum(arr)+pt)
