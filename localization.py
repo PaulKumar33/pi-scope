@@ -6,6 +6,7 @@ from pyqtgraph.Qt import QtGui, QtCore
 from random import randint
 import os
 import time
+import csv
 
 import mcp_3008_driver as mcp
 import RPi.GPIO as GPIO
@@ -196,17 +197,20 @@ class Plot2D(QtWidgets.QMainWindow):
         self.pl_p1.setData(self.t, self.p1)
         self.pl_p2.setData(self.t, self.p2)
 
-        if(self.cnt%1000 == 0):
-            print("{}% Done".format(self.cnt/1000*100))
-        if(cnt >= 10000):
+        if(self.cnt%300 == 0):
+            print("{}% Done".format(self.cnt/300*100))
+        if(self.cnt >= 3000):
             print("done")
             with open('tracked.csv', 'a') as fd:
                 # fd.write(self.csv_write)
+                print('writing')
                 writer = csv.writer(fd)
                 for i in range(len(self.ty1)):
                     writer.writerow([self.tt[i], self.ty1[i], self.ty2[i], self.te1[i], self.te2[i], self.tp1[i], self.tp2[i]])
+                    
+            time.sleep(10)
             return
-        cnt +=1
+        self.cnt +=1
 
     def update_array_movag(self, pt, arr, N):
         return 1/N*(sum(arr)+pt)
