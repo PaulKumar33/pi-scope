@@ -10,13 +10,20 @@ import time
 import csv
 import pandas as pd
 import impurity
+import json
 
 import mcp_3008_driver as mcp
 import RPi.GPIO as GPIO
 
 class Plot2D(QtWidgets.QMainWindow):
+    def setup_gpios(self):
+        GPIO.setmode()
+    
     def __init__(self, *args, **kwargs):
         super(Plot2D, self).__init__(*args, **kwargs)
+        
+        GPIO.setmode(GPIO.BCM)
+        
 
         """self.plot = pg.PlotWidget()
         self.setCentralWidget(self.plot)"""
@@ -46,6 +53,7 @@ class Plot2D(QtWidgets.QMainWindow):
         self.y = [randint(-10,10) for _ in range(len(self.x))]
 
         if(os.name == 'posix'):
+            self.plot_bool = False
             print("Running ADC")
             self.mcp = mcp.mcp_external()
 
@@ -227,7 +235,7 @@ class Plot2D(QtWidgets.QMainWindow):
             for _class_ in _classify:
                 if (_classify[_class_] > max_guess):
                     max_class, max_guess = _class_, _classify[_class_]
-            print("Predicted: {}".format(max_class))
+            print("Location: {}".format(max_class))
                 
             if(np.abs(self.y1[-1] - self.ss1) >= 0.3):
                 self.update_s1_peak()
@@ -242,7 +250,7 @@ class Plot2D(QtWidgets.QMainWindow):
             print(self.p2_peaks)
             
             #lets get the features here
-            if(self.trigger_cnt >= 10):
+            if(self.trigger_cnt >= 15):
                 if(len(self.p1_peaks) > 0):
                     s1_p1 = self.p1_peaks[0]
                     s1_p2 = self.p1_peaks[-1]
@@ -314,14 +322,14 @@ class Plot2D(QtWidgets.QMainWindow):
         self.tp2 = np.concatenate((self.tp2, [self.p2[-1]]), axis=None)
         #movavg filter
         
-
-        '''self.d.setData(self.t, self.y1)
-        self.d1.setData(self.t, self.y2)
-        self.pl_var_1.setData(self.t, self.e1)
-        self.pl_var_2.setData(self.t, self.e2)
-        self.pl_p1.setData(self.t, self.p1)
-        self.pl_p2.setData(self.t, self.p2)
-        self.t_plot.setData(self.t, self.trigger)'''
+        if(self.plot_bool):
+            self.d.setData(self.t, self.y1)
+            self.d1.setData(self.t, self.y2)
+            self.pl_var_1.setData(self.t, self.e1)
+            self.pl_var_2.setData(self.t, self.e2)
+            self.pl_p1.setData(self.t, self.p1)
+            self.pl_p2.setData(self.t, self.p2)
+            self.t_plot.setData(self.t, self.trigger)
 
         '''if(self.cnt%3000 == 0):
             print("{}% Done".format(self.cnt/3000*100))
