@@ -36,6 +36,7 @@ class Plot2D(QtWidgets.QMainWindow):
 
     def hw_isr(self):
         '''pause execution and edit response'''
+        print("HW recorded")
         if(self.flags["TRIG"]):
             self.globals["COMPLETED_HW"] += 1
         else:
@@ -514,7 +515,7 @@ class Plot2D(QtWidgets.QMainWindow):
                 print("Direction of non interest")
                 print("Setting timer")
                 if(self.flags["TRIG"] == False):
-                    self.flags["DATA"] = False
+                    #self.flags["DATA"] = False
                     self.globals["TRIG_TIME"] = time.time()
                 self.globals["LAST_DIR"] = 0
 
