@@ -38,15 +38,18 @@ class Plot2D(QtWidgets.QMainWindow):
         '''pause execution and edit response'''
         print("HW recorded")
         if(self.flags["TRIG"]):
+            #if the device was triggered, set
             self.globals["COMPLETED_HW"] += 1
         else:
+            #if the device is not triggered, count new event as well
             self.globals["COMPLETED_HW"] += 1
             self.globals["HW_EVENTS"] += 1
-        self.globals["HW_TRIG_TIME"] = time.time()
+        self.globals["SUCCESS_TRIG"] = time.time()
         self.flags["DATA"] = False
+        self.flags["TRIG"] = False
 
-            #if its not a trig after HW, add some time to the timer.
-        pass
+        #set the timers to neg times
+        self.globals["TRIG_TIME"] = -3*60
 
     
     def __init__(self, *args, **kwargs):
@@ -70,22 +73,24 @@ class Plot2D(QtWidgets.QMainWindow):
         
         threshes set times for when a HW is valid or when a non interesting direction gets cleard
         '''
+        self.default_trig, self.default_hw_trig, self.default_success = -3*60, -2.5*60, -0.5*60
         self.globals = {
             "COMPLETED_HW": 0,
             "HW_EVENTS": 0,
             "TRIG_TIME": -3*60,
             "HW_TRIG_TIME": -2.5*60,
-            "SUCCESS_TRIG": -1.25*60,
+            "SUCCESS_TRIG": -.5*60,
             "TRIG_THRESH": 3*60,
             "HW_TIMER_THRESH": 2*60,
-            "SUCCESS_TIMER_THRESH": 1.25*60,
+            "SUCCESS_TIMER_THRESH": 0.5*60,
             "LAST_DIR": None,
         }
 
         self.e_buffer_len = 10
         self.e_buffer_1 = [0 for i in range(self.e_buffer_len)]
         self.e_buffer_2 = [0 for i in range(self.e_buffer_len)]
-        
+
+        print(">>> Setting up GPIO")
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(16, GPIO.OUT)
         GPIO.setup(2, GPIO.OUT)
@@ -93,6 +98,8 @@ class Plot2D(QtWidgets.QMainWindow):
 
         self.outputGPIO = [2,16]
         self.setGPIOLow()
+        time.sleep(0.5)
+        print("Done")
         
 
         """self.plot = pg.PlotWidget()
@@ -277,7 +284,17 @@ class Plot2D(QtWidgets.QMainWindow):
         
         p1 = e1/total
         p2 = e2/total
-        
+
+        if(self.flags["DATA"] == False and np.abs(time.time() - self.globals["SUCCESS_TRIG"])>=self.globals["SUCCESS_TIMER_THRESH"]):
+            #start collecting again
+            print(">>> Running collection")
+            self.flags["DATA"] = True
+
+        if(self.flags["TRIG"] and np.abs(time.time()-self.globals["HW_TRIG_TIME"])>=self.globals["HW_TIMER_THRESH"]):
+            #set trig flag to low if outside of the window
+            print(">>> Lowering trigger")
+            self.flags["TRIG"] = False
+
         #implement the schmitt trigger
         if(e1 >= 0.9 or e2 >= 0.9):
             self.LED_indicator()
@@ -357,7 +374,7 @@ class Plot2D(QtWidgets.QMainWindow):
                     if (_classify[_class_] > max_guess):
                         max_class, max_guess = _class_, _classify[_class_]
                 print("Predicted: {}".format(max_class))
-                if (self.flags["DATA"] == False):
+                if (self.flags["DATA"]):
                     self.direction_classification(max_class)
 
                 '''with open("direction_data.csv", "a") as dd:
