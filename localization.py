@@ -17,12 +17,81 @@ import RPi.GPIO as GPIO
 
 class Plot2D(QtWidgets.QMainWindow):
     def setup_gpios(self):
-        GPIO.setmode()
+        GPIO.setmode(GPIO.BCM)
+        with open('./config.json') as f:
+            data = json.load(f)
+            for item in data.items():
+                io = GPIO.OUT if item[1][0] == "out" else GPIO.IN
+                if(item[1][0] == "in"):
+                    logic = GPIO.PUD_DOWN if item[1][0] == "down" else GPIO.PUD_UP
+                    GPIO.setup(int(item[0]), io, logic)
+                if(item[1][0] == "out"):
+                    GPIO.setup(item[0], io)
+
+    def setGPIOLow(self):
+        '''called on setup. forces IOs low'''
+        for io in self.outputGPIO:
+            GPIO.output(int(io), 0)
+
+
+    def hw_isr(self):
+        '''pause execution and edit response'''
+        if(self.flags["TRIG"]):
+            self.globals["COMPLETED_HW"] += 1
+        else:
+            self.globals["COMPLETED_HW"] += 1
+            self.globals["HW_EVENTS"] += 1
+        self.globals["HW_TRIG_TIME"] = time.time()
+        self.flags["DATA"] = False
+
+            #if its not a trig after HW, add some time to the timer.
+        pass
+
     
     def __init__(self, *args, **kwargs):
         super(Plot2D, self).__init__(*args, **kwargs)
+
+        '''
+        direction of interest 0 - left, 1 - right
+        '''
+        self.flags={
+            "HW_TIMER":True,
+            "DIRECTION":0,
+            "DATA":True,
+            "TRIG": False
+        }
+
+        '''
+        trigger time is set for either a right or left direction. if it is not a direction of interest,
+        we set a timer for 5 mins. If an individual returns within 5 minutes the event is not recorded
+        
+        hw trig time tracks the time from the last HW event
+        
+        threshes set times for when a HW is valid or when a non interesting direction gets cleard
+        '''
+        self.globals = {
+            "COMPLETED_HW": 0,
+            "HW_EVENTS": 0,
+            "TRIG_TIME": -3*60,
+            "HW_TRIG_TIME": -2.5*60,
+            "SUCCESS_TRIG": -1.25*60,
+            "TRIG_THRESH": 3*60,
+            "HW_TIMER_THRESH": 2*60,
+            "SUCCESS_TIMER_THRESH": 1.25*60,
+            "LAST_DIR": None,
+        }
+
+        self.e_buffer_len = 10
+        self.e_buffer_1 = [0 for i in range(self.e_buffer_len)]
+        self.e_buffer_2 = [0 for i in range(self.e_buffer_len)]
         
         GPIO.setmode(GPIO.BCM)
+        GPIO.setup(16, GPIO.OUT)
+        GPIO.setup(2, GPIO.OUT)
+        GPIO.setup(24, GPIO.RISING, bouncetime=1500, callback=self.hw_isr)
+
+        self.outputGPIO = [2,16]
+        self.setGPIOLow()
         
 
         """self.plot = pg.PlotWidget()
@@ -46,9 +115,6 @@ class Plot2D(QtWidgets.QMainWindow):
         self.plot7 = w.addPlot(row=3, col=0)
 
         self.setCentralWidget(w)
-
-        """hour = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        temperature = [30, 32, 34, 32, 33, 31, 29, 32, 35, 45]"""
         self.x = np.arange(0,5.01, 0.01)
         self.y = [randint(-10,10) for _ in range(len(self.x))]
 
@@ -158,6 +224,8 @@ class Plot2D(QtWidgets.QMainWindow):
         self.timer.start()
 
     def update_adc_measurement(self):
+
+
         x1 = float(self.mcp.read_IO(0)/65355*5)
         x2 = float(self.mcp.read_IO(1) / 65355 * 5)
         ttemp = self.t[1:] if len(self.t[1:]) <= 128 else self.t[1:128]
@@ -209,8 +277,9 @@ class Plot2D(QtWidgets.QMainWindow):
         p1 = e1/total
         p2 = e2/total
         
-        
+        #implement the schmitt trigger
         if(e1 >= 0.9 or e2 >= 0.9):
+            self.LED_indicator()
             # get the first sensor high
             self.trigger_cnt += 1
             if(self.first_trigger == None and p1 >= p2):
@@ -222,12 +291,17 @@ class Plot2D(QtWidgets.QMainWindow):
                 self.last_trigger = 1
             else:
                 self.last_trigger = 0
-                
+
+            #update the energy buffers
+            self.e_buffer_1 = np.concatenate((self.e_buffer_1[1:-1], e1), axis=None)
+            self.e_buffer_2 = np.concatenate((self.e_buffer_2[1:-1], e2), axis=None)
+
             self.schmit_trig = 1
             ttrigger = self.trigger[1:] if len(self.trigger[1:]) <= 128 else self.trigger[1:128]
             self.trigger = np.concatenate((ttrigger, [1]),axis=None)
-            
-            _classify = impurity.classify([p1,p2,e1,e2],
+
+            #this is for the location
+            '''_classify = impurity.classify([p1,p2,e1,e2],
                                           self.tree)
             max_guess = 0
             max_class = None
@@ -235,13 +309,13 @@ class Plot2D(QtWidgets.QMainWindow):
             for _class_ in _classify:
                 if (_classify[_class_] > max_guess):
                     max_class, max_guess = _class_, _classify[_class_]
-            print("Location: {}".format(max_class))
+            #print("Location: {}".format(max_class))'''
                 
             if(np.abs(self.y1[-1] - self.ss1) >= 0.3):
                 self.update_s1_peak()
             if(np.abs(self.y2[-1] - self.ss2) >= 0.3):
                 self.update_s2_peak()
-        elif(e1 <= 0.075 and e2 <= 0.075 and self.schmit_trig == 1):
+        elif(e1 <= 0.065 and e2 <= 0.065 and self.schmit_trig == 1):
             self.schmit_trig = 0
             ttrigger = self.trigger[1:] if len(self.trigger[1:]) <= 128 else self.trigger[1:128]
             self.trigger = np.concatenate((ttrigger, [0]),axis=None)
@@ -282,7 +356,9 @@ class Plot2D(QtWidgets.QMainWindow):
                     if (_classify[_class_] > max_guess):
                         max_class, max_guess = _class_, _classify[_class_]
                 print("Predicted: {}".format(max_class))
-                
+                if (self.flags["DATA"] == False):
+                    self.direction_classification(max_class)
+
                 '''with open("direction_data.csv", "a") as dd:
                     writer = csv.writer(dd)
                     writer.writerow([self.first_trigger, self.last_trigger, s1_gr, s2_gr, s1_p1, s1_p2, s2_p1, s2_p2])'''
@@ -331,19 +407,6 @@ class Plot2D(QtWidgets.QMainWindow):
             self.pl_p2.setData(self.t, self.p2)
             self.t_plot.setData(self.t, self.trigger)
 
-        '''if(self.cnt%3000 == 0):
-            print("{}% Done".format(self.cnt/3000*100))
-        if(self.cnt >= 3000):
-            print("done")
-            with open('tracked.csv', 'a') as fd:
-                # fd.write(self.csv_write)
-                print('writing')
-                writer = csv.writer(fd)
-                for i in range(len(self.ty1)):
-                    writer.writerow([self.tt[i], self.ty1[i], self.ty2[i], self.te1[i], self.te2[i], self.tp1[i], self.tp2[i]])
-                    
-            time.sleep(10)
-            return'''
         self.cnt +=1
     
     def update_s1_peak(self):
@@ -418,6 +481,45 @@ class Plot2D(QtWidgets.QMainWindow):
             else:
                 self.p2_peaks.append(self.y2[-2])
                 self.p2_t.append(self.t[-2])
+
+
+    def LED_indicator(self, io):
+        GPIO.output(24, io)
+
+    def buzzer__indicator(self):
+        pass
+
+    def direction_classification(self, dir):
+        if(dir != "Right" or dir != "Left"):
+            print("Quadrent movement")
+            self.globals["LAST_DIR"] = -1
+        else:
+
+            if(dir == 'right' and self.flags['DIRECTION'] == 1 or dir == "left" and self.flags["DIRECTION"] == 0):
+                # if there is not a current active event
+                if (np.abs(time.time() - self.globals["TRIG_TIME"]) >= self.globals["TRIG_THRESH"]
+                        and np.abs(time.time() - self.globals["HW_TRIG_TIME"]) >= self.globals["HW_TIMER_THRESH"]):
+                    print("Event Captured")
+                    #set the trig time
+                    self.globals["HW_TRIG_TIME"] = time.time()
+                    self.globals['HW_EVENTS'] += 1
+                    self.flags["TRIG"] = True
+                    self.flags["DATA"] = False
+                else:
+                    print("One threshold was not exceeded")
+                    print("Timer Flag: {}".format(np.abs(time.time() - self.globals["TRIG_TIME"]) >= self.globals["TRIG_THRESH"]))
+                    print("HW Timer Flag: {}".format(
+                        np.abs(time.time() - self.globals["HW_TRIG_TIME"]) >= self.globals["HW_TIMER_THRESH"]))
+            else:
+                print("Direction of non interest")
+                print("Setting timer")
+                if(self.flags["TRIG"] == False):
+                    self.flags["DATA"] = False
+                    self.globals["TRIG_TIME"] = time.time()
+                self.globals["LAST_DIR"] = 0
+
+        #self.globals["LAST_DIR"] = dir
+
 
     def update_array_movag(self, pt, arr, N):
         return 1/N*(sum(arr)+pt)
