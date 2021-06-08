@@ -32,16 +32,25 @@ class Plot2D(QtWidgets.QMainWindow):
         '''called on setup. forces IOs low'''
         for io in self.outputGPIO:
             GPIO.output(int(io), 0)
+    
+    def clear_features(self):
+        self.trigger_cnt = 0
+        self.p2_peaks, self.p1_peaks = [], []
+        self.first_trigger, self.last_trigger = None, None
+        s1_p1, s1_p2, s2_p1, s2_p2 = None, None, None, None
+        s1_gr, s2_gr = None, None 
 
 
-    def hw_isr(self):
+    def hw_isr(self, e):
         '''pause execution and edit response'''
         print("HW recorded")
         if(self.flags["TRIG"]):
             #if the device was triggered, set
+            print("Recording for recent event")
             self.globals["COMPLETED_HW"] += 1
         else:
             #if the device is not triggered, count new event as well
+            print("recording as new record")
             self.globals["COMPLETED_HW"] += 1
             self.globals["HW_EVENTS"] += 1
         self.globals["SUCCESS_TRIG"] = time.time()
@@ -50,6 +59,8 @@ class Plot2D(QtWidgets.QMainWindow):
 
         #set the timers to neg times
         self.globals["TRIG_TIME"] = -3*60
+        self.clear_features()
+        time.sleep(1)
 
     
     def __init__(self, *args, **kwargs):
@@ -60,7 +71,7 @@ class Plot2D(QtWidgets.QMainWindow):
         '''
         self.flags={
             "HW_TIMER":True,
-            "DIRECTION":0,
+            "DIRECTION":1,
             "DATA":True,
             "TRIG": False
         }
@@ -85,6 +96,18 @@ class Plot2D(QtWidgets.QMainWindow):
             "SUCCESS_TIMER_THRESH": 0.5*60,
             "LAST_DIR": None,
         }
+        print(">>> Starting up")
+        print(">>> Flags: ")
+        
+        for key in self.flags.keys():
+            print("{0}: {1}".format(key, self.flags[key]))
+            time.sleep(0.1)
+        
+        time.sleep(0.5)
+        print(">>> Globals")
+        for key in self.globals.keys():
+            print("{0}: {1}".format(key, self.globals[key]))
+            time.sleep(0.1)
 
         self.e_buffer_len = 10
         self.e_buffer_1 = [0 for i in range(self.e_buffer_len)]
@@ -94,7 +117,8 @@ class Plot2D(QtWidgets.QMainWindow):
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(16, GPIO.OUT)
         GPIO.setup(2, GPIO.OUT)
-        GPIO.setup(24, GPIO.RISING, bouncetime=1500, callback=self.hw_isr)
+        GPIO.setup(24, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.add_event_detect(24, GPIO.RISING, bouncetime=1500, callback=self.hw_isr)
 
         self.outputGPIO = [2,16]
         self.setGPIOLow()
@@ -169,6 +193,8 @@ class Plot2D(QtWidgets.QMainWindow):
             self.tp2 = []
             self.cnt = 0
             self.trigger_cnt = 0
+            self.flash_cnt = 0
+            self.flash = 1
 
             df = pd.read_csv("./localization.csv")
             # df = df.drop(columns=['figure'])
@@ -206,13 +232,13 @@ class Plot2D(QtWidgets.QMainWindow):
                     self.y1 = self.x1
                     self.y2 = self.x2
             
-            self.d = self.plot.plot(self.t, self.x1)
+            '''self.d = self.plot.plot(self.t, self.x1)
             self.d1 = self.plot2.plot(self.t, self.x2)
             self.pl_var_1 = self.plot3.plot(self.t, self.var_1)
             self.pl_var_2 = self.plot4.plot(self.t, self.var_2)
             self.pl_p1 = self.plot5.plot(self.t, self.p1)
             self.pl_p2 = self.plot6.plot(self.t, self.p2)
-            self.t_plot = self.plot7.plot(self.t, self.trigger)
+            self.t_plot = self.plot7.plot(self.t, self.trigger)'''
             self.runCapture()
 
         # plot data: x, y values
@@ -294,10 +320,11 @@ class Plot2D(QtWidgets.QMainWindow):
             #set trig flag to low if outside of the window
             print(">>> Lowering trigger")
             self.flags["TRIG"] = False
+            self.flash_cnt = 0
 
         #implement the schmitt trigger
-        if(e1 >= 0.9 or e2 >= 0.9):
-            self.LED_indicator()
+        if(e1 >= 0.8 or e2 >= 0.8):
+            self.LED_indicator(1)
             # get the first sensor high
             self.trigger_cnt += 1
             if(self.first_trigger == None and p1 >= p2):
@@ -334,6 +361,7 @@ class Plot2D(QtWidgets.QMainWindow):
             if(np.abs(self.y2[-1] - self.ss2) >= 0.3):
                 self.update_s2_peak()
         elif(e1 <= 0.065 and e2 <= 0.065 and self.schmit_trig == 1):
+            self.LED_indicator(1)
             self.schmit_trig = 0
             ttrigger = self.trigger[1:] if len(self.trigger[1:]) <= 128 else self.trigger[1:128]
             self.trigger = np.concatenate((ttrigger, [0]),axis=None)
@@ -373,24 +401,29 @@ class Plot2D(QtWidgets.QMainWindow):
                 for _class_ in _classify:
                     if (_classify[_class_] > max_guess):
                         max_class, max_guess = _class_, _classify[_class_]
-                print("Predicted: {}".format(max_class))
+                #print("Predicted: {}".format(max_class))
                 if (self.flags["DATA"]):
+                    print("Predicted: {}".format(max_class))
                     self.direction_classification(max_class)
+                else:
+                    print("Data low. Here is direction: {}".format(max_class))
 
                 '''with open("direction_data.csv", "a") as dd:
                     writer = csv.writer(dd)
                     writer.writerow([self.first_trigger, self.last_trigger, s1_gr, s2_gr, s1_p1, s1_p2, s2_p1, s2_p2])'''
-            self.trigger_cnt = 0
-            self.p2_peaks, self.p1_peaks = [], []
-            self.first_trigger, self.last_trigger = None, None
-            s1_p1, s1_p2, s2_p1, s2_p2 = None, None, None, None
-            s1_gr, s2_gr = None, None
+            self.clear_features()              
+            '''self.d1.setData(self.t, self.y2)
+            self.d.setData(self.t, self.y1)'''
             
-            
-            
-            self.d1.setData(self.t, self.y2)
-            self.d.setData(self.t, self.y1)
         elif(self.schmit_trig == 0):
+            if(self.flags["TRIG"]):
+                if(self.flash_cnt % 25 == 0):
+                    print("we are here")
+                    self.LED_indicator(not self.flash)            
+                self.flash_cnt += 1
+            else:
+                self.LED_indicator(0)  
+                
             self.schmit_trig = 0
             self.trigger_ct = 0
             ttrigger = self.trigger[1:] if len(self.trigger[1:]) <= 128 else self.trigger[1:128]
@@ -502,13 +535,13 @@ class Plot2D(QtWidgets.QMainWindow):
 
 
     def LED_indicator(self, io):
-        GPIO.output(24, io)
+        GPIO.output(16, io)
 
     def buzzer__indicator(self):
         pass
 
     def direction_classification(self, dir):
-        if(dir != "Right" or dir != "Left"):
+        if(dir != "right" and dir != "left"):
             print("Quadrent movement")
             self.globals["LAST_DIR"] = -1
         else:
