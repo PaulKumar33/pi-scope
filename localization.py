@@ -59,8 +59,18 @@ class Plot2D(QtWidgets.QMainWindow):
 
         #set the timers to neg times
         self.globals["TRIG_TIME"] = -3*60
+        
+        cnt = 0
+        self.lower_buzz()
+        while(cnt <= 2):
+            self.LED_indicator(1)
+            time.sleep(0.65)
+            self.LED_indicator(1)
+            time.sleep(0.65)
+            cnt += 1
+            print(">>>attempt")
         self.clear_features()
-        time.sleep(1)
+            
 
     
     def __init__(self, *args, **kwargs):
@@ -73,7 +83,8 @@ class Plot2D(QtWidgets.QMainWindow):
             "HW_TIMER":True,
             "DIRECTION":1,
             "DATA":True,
-            "TRIG": False
+            "TRIG": False,
+            "BUZZ": False
         }
 
         '''
@@ -88,13 +99,13 @@ class Plot2D(QtWidgets.QMainWindow):
         self.globals = {
             "COMPLETED_HW": 0,
             "HW_EVENTS": 0,
-            "BUZZER_TIME": -0.25,
+            "BUZZER_TIME": -0.55,
             "TRIG_TIME": -3*60,
             "HW_TRIG_TIME": -2.5*60,
             "SUCCESS_TRIG": -.5*60,
             "TRIG_THRESH": 3*60,
             "HW_TIMER_THRESH": 2*60,
-            "BUZZER_THRESH": 0.25,
+            "BUZZER_THRESH": 0.55,
             "SUCCESS_TIMER_THRESH": 0.5*60,
             "LAST_DIR": None,
         }
@@ -120,7 +131,7 @@ class Plot2D(QtWidgets.QMainWindow):
         GPIO.setup(16, GPIO.OUT)
         GPIO.setup(2, GPIO.OUT)
         GPIO.setup(24, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-        GPIO.add_event_detect(24, GPIO.RISING, bouncetime=1500, callback=self.hw_isr)
+        GPIO.add_event_detect(24, GPIO.RISING, bouncetime=3000, callback=self.hw_isr)
 
         self.outputGPIO = [2,16]
         self.setGPIOLow()
@@ -260,7 +271,7 @@ class Plot2D(QtWidgets.QMainWindow):
         self.timer.start()
 
     def update_adc_measurement(self):
-
+        self.lower_buzz()
 
         x1 = float(self.mcp.read_IO(0)/65355*5)
         x2 = float(self.mcp.read_IO(1) / 65355 * 5)
@@ -340,12 +351,14 @@ class Plot2D(QtWidgets.QMainWindow):
                 self.last_trigger = 0
             
             if(e1 >= 0.6 and e2 >= 0.6):
-                if(self.first_trigger == 0 and self.globals["DIRECTION"] == 1):
+                if(self.first_trigger == 0 and self.flags["DIRECTION"] == 1 and self.flags["BUZZ"]==False):
                     self.buzzer_indicator(1)
                     self.globals["BUZZER_TIME"] = time.time()
-                elif(self.first_trigger == 1 and self.globals["DIRECTION"] == 0):
+                    self.flags["BUZZ"] = True
+                elif(self.first_trigger == 1 and self.flags["DIRECTION"] == 0 and self.flags["BUZZ"]==False):
                     self.buzzer_indicator(1)
                     self.globals["BUZZER_TIME"] = time.time()
+                    self.flags["BUZZ"] = True
                     
 
             #update the energy buffers
@@ -433,7 +446,9 @@ class Plot2D(QtWidgets.QMainWindow):
                     self.LED_indicator(not self.flash)            
                 self.flash_cnt += 1
             else:
-                self.LED_indicator(0)  
+                self.LED_indicator(0)
+                self.lower_buzz()
+                self.flags["BUZZ"] = False
                 
             self.schmit_trig = 0
             self.trigger_ct = 0
@@ -551,6 +566,7 @@ class Plot2D(QtWidgets.QMainWindow):
     def lower_buzz(self):
         if(np.abs(time.time() - self.globals["BUZZER_TIME"])):
             self.buzzer_indicator(0)
+            #self.flags["BUZZ"] = False
 
     def buzzer_indicator(self, io):
         GPIO.output(2, io)
