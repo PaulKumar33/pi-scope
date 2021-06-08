@@ -88,11 +88,13 @@ class Plot2D(QtWidgets.QMainWindow):
         self.globals = {
             "COMPLETED_HW": 0,
             "HW_EVENTS": 0,
+            "BUZZER_TIME": -0.25,
             "TRIG_TIME": -3*60,
             "HW_TRIG_TIME": -2.5*60,
             "SUCCESS_TRIG": -.5*60,
             "TRIG_THRESH": 3*60,
             "HW_TIMER_THRESH": 2*60,
+            "BUZZER_THRESH": 0.25,
             "SUCCESS_TIMER_THRESH": 0.5*60,
             "LAST_DIR": None,
         }
@@ -323,7 +325,7 @@ class Plot2D(QtWidgets.QMainWindow):
             self.flash_cnt = 0
 
         #implement the schmitt trigger
-        if(e1 >= 0.8 or e2 >= 0.8):
+        if(e1 >= 0.6 or e2 >= 0.6):
             self.LED_indicator(1)
             # get the first sensor high
             self.trigger_cnt += 1
@@ -336,6 +338,13 @@ class Plot2D(QtWidgets.QMainWindow):
                 self.last_trigger = 1
             else:
                 self.last_trigger = 0
+            
+            if(e1 >= 0.6 and e2 >= 0.6):
+                if(self.first_trigger == 0 and self.globals["DIRECTION"] == 1):
+                    self.buzzer_indicator(1)
+                elif(self.first_trigger == 1 and self.globals["DIRECTION"] == 0):
+                    self.buzzer_indicator(1)
+                    
 
             #update the energy buffers
             self.e_buffer_1 = np.concatenate((self.e_buffer_1[1:-1], e1), axis=None)
@@ -536,9 +545,13 @@ class Plot2D(QtWidgets.QMainWindow):
 
     def LED_indicator(self, io):
         GPIO.output(16, io)
+        
+    def lower_buzz(self):
+        if(self.globals):
+            passs
 
-    def buzzer__indicator(self):
-        pass
+    def buzzer_indicator(self, io):
+        GPIO.output(2, io)
 
     def direction_classification(self, dir):
         if(dir != "right" and dir != "left"):
