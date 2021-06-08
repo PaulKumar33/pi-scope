@@ -342,8 +342,10 @@ class Plot2D(QtWidgets.QMainWindow):
             if(e1 >= 0.6 and e2 >= 0.6):
                 if(self.first_trigger == 0 and self.globals["DIRECTION"] == 1):
                     self.buzzer_indicator(1)
+                    self.globals["BUZZER_TIME"] = time.time()
                 elif(self.first_trigger == 1 and self.globals["DIRECTION"] == 0):
                     self.buzzer_indicator(1)
+                    self.globals["BUZZER_TIME"] = time.time()
                     
 
             #update the energy buffers
@@ -547,8 +549,8 @@ class Plot2D(QtWidgets.QMainWindow):
         GPIO.output(16, io)
         
     def lower_buzz(self):
-        if(self.globals):
-            passs
+        if(np.abs(time.time() - self.globals["BUZZER_TIME"])):
+            self.buzzer_indicator(0)
 
     def buzzer_indicator(self, io):
         GPIO.output(2, io)
@@ -564,6 +566,8 @@ class Plot2D(QtWidgets.QMainWindow):
                 if (np.abs(time.time() - self.globals["TRIG_TIME"]) >= self.globals["TRIG_THRESH"]
                         and np.abs(time.time() - self.globals["HW_TRIG_TIME"]) >= self.globals["HW_TIMER_THRESH"]):
                     print("Event Captured")
+                    self.buzzer_indicator(1)
+                    self.globals["BUZZER_TIME"] = time.time()
                     #set the trig time
                     self.globals["HW_TRIG_TIME"] = time.time()
                     self.globals['HW_EVENTS'] += 1
