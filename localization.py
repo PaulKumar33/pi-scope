@@ -142,7 +142,7 @@ class Plot2D(QtWidgets.QMainWindow):
         """self.plot = pg.PlotWidget()
         self.setCentralWidget(self.plot)"""
 
-        w = pg.GraphicsLayoutWidget(size=(1000, 750))
+        w = pg.GraphicsLayoutWidget()
 
         #for signal 1
         self.plot = w.addPlot(row=0, col=0)
@@ -164,7 +164,7 @@ class Plot2D(QtWidgets.QMainWindow):
         self.y = [randint(-10,10) for _ in range(len(self.x))]
 
         if(os.name == 'posix'):
-            self.plot_bool = False
+            self.plot_bool = True
             print("Running ADC")
             self.mcp = mcp.mcp_external()
 
@@ -245,13 +245,13 @@ class Plot2D(QtWidgets.QMainWindow):
                     self.y1 = self.x1
                     self.y2 = self.x2
             
-            '''self.d = self.plot.plot(self.t, self.x1)
+            self.d = self.plot.plot(self.t, self.x1)
             self.d1 = self.plot2.plot(self.t, self.x2)
             self.pl_var_1 = self.plot3.plot(self.t, self.var_1)
             self.pl_var_2 = self.plot4.plot(self.t, self.var_2)
             self.pl_p1 = self.plot5.plot(self.t, self.p1)
             self.pl_p2 = self.plot6.plot(self.t, self.p2)
-            self.t_plot = self.plot7.plot(self.t, self.trigger)'''
+            self.t_plot = self.plot7.plot(self.t, self.trigger)
             self.runCapture()
 
         # plot data: x, y values
